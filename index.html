@@ -213,7 +213,7 @@ function stamp(x,y,k){
  var sg=SIGMA/S,cx=x/S,cy=y/S,r=Math.ceil(sg*2.6),inv=1/(2*sg*sg);
  var x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(gw-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(gh-1,Math.ceil(cy+r));
  for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){
-  var dx=i-cx,dy=j-cy,v=k*Math.exp(-(dx*dx+dy*dy)*inv),id=j*gw+i;
+  var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+.13*(nA[id]*2-1));
   acc[id]=Math.min(1.15,acc[id]+v);
  }
  active=true;
@@ -322,10 +322,10 @@ function initGL(){
  try{
   gl=gc.getContext('webgl2',{alpha:false,antialias:false});
   if(!gl)throw 0;
-  var vs=glShader(gl.VERTEX_SHADER,['#version 300 es','in vec2 p;out vec2 uv;','void main(){uv=p*.5+.5;uv.y=1.-uv.y;gl_Position=vec4(p,0.,1.);}'].join('\n')),fs=glShader(gl.FRAGMENT_SHADER,['#version 300 es','precision highp float;','in vec2 uv;out vec4 o;',
+  var vs=glShader(gl.VERTEX_SHADER,['#version 300 es','in vec2 p;out vec2 uv;','void main(){uv=p*.5+.5;uv.y=1.-uv.y;gl_Position=vec4(p,0.,1.);}'].join('\n')),fs=glShader(gl.FRAGMENT_SHADER,['#version 300 es','precision highp float;','precision highp sampler2D;','in vec2 uv;out vec4 o;',
 'uniform sampler2D uF;uniform sampler2D uT;uniform vec2 uTex;uniform float uPx;',
 'void main(){',
-' float k=255./212.;',
+' float k=1.;',
 ' vec2 d=1./uTex;',
 ' float a=texture(uF,uv).r*k;',
 ' float gx=(texture(uF,uv+vec2(d.x,0.)).r-texture(uF,uv-vec2(d.x,0.)).r)*.5*k;',
@@ -349,9 +349,9 @@ function initGL(){
 }
 function glResize(){
  var gc=gl.canvas;gc.width=W;gc.height=H;gl.viewport(0,0,W,H);
- fld=new Uint8ClampedArray(gw*gh);
+ fld=new Float32Array(gw*gh);
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
- gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,gw,gh,0,gl.RED,gl.UNSIGNED_BYTE,fld);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.R16F,gw,gh,0,gl.RED,gl.FLOAT,fld);
  gl.uniform2f(gLoc.uTex,gw,gh);gl.uniform1f(gLoc.uPx,W/gw);
  uploadText();
 }
@@ -362,9 +362,9 @@ function uploadText(){
 function stepGL(){
  var any=false,n=gw*gh;
  for(var i=0;i<n;i++){var a=acc[i];
-  if(a>0){a=a*.9992-.0007*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a*212}else fld[i]=0}
+  if(a>0){a=a*.9992-.0007*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a}else fld[i]=0}
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
- gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gw,gh,gl.RED,gl.UNSIGNED_BYTE,fld);
+ gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gw,gh,gl.RED,gl.FLOAT,fld);
  active=any||!!down;
 }
 function step(){stepGL()}
@@ -435,16 +435,18 @@ function logoGrow(){
  for(k=0;k<n;k++)t[k]=(t[k]/mx*.8+.2*nB[c.idx[k]])*T;
  var ord=[];for(k=0;k<n;k++)ord.push(k);
  ord.sort(function(a,b){return t[a]-t[b]});
- var o={n:n,p:0,t0:performance.now(),idx:new Int32Array(n),val:new Float32Array(n),t:new Float32Array(n)};
+ var o={n:n,p:0,q:0,t0:performance.now(),idx:new Int32Array(n),val:new Float32Array(n),t:new Float32Array(n)};
  for(k=0;k<n;k++){o.idx[k]=c.idx[ord[k]];o.val[k]=c.val[ord[k]];o.t[k]=t[ord[k]]}
  reveals.push(o);active=true;
 }
 function pump(){
  if(!reveals.length)return;
- var now=performance.now(),i;
+ var now=performance.now(),i,k,R=900;
  for(i=reveals.length-1;i>=0;i--){
   var r=reveals[i],e=now-r.t0;
-  while(r.p<r.n&&r.t[r.p]<=e){var id=r.idx[r.p];if(r.val[r.p]>acc[id])acc[id]=r.val[r.p];r.p++}
+  while(r.q<r.n&&r.t[r.q]<=e)r.q++;
+  for(k=r.p;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]])acc[r.idx[k]]=v}
+  while(r.p<r.q&&e-r.t[r.p]>=R)r.p++;
   if(r.p>=r.n)reveals.splice(i,1);
  }
  active=true;
