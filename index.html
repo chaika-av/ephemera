@@ -362,7 +362,7 @@ function uploadText(){
 function stepGL(){
  var any=false,n=gw*gh;
  for(var i=0;i<n;i++){var a=acc[i];
-  if(a>0){a=a*.9992-.0007*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a}else fld[i]=0}
+  if(a>0){a=a*.9986-.0012*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a}else fld[i]=0}
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gw,gh,gl.RED,gl.FLOAT,fld);
  active=any||!!down;
@@ -426,12 +426,12 @@ function logoReveal(){
 /* постепенно: знак расползается от случайной точки, как будто его нарисовали мокрой рукой */
 var reveals=[],runTok=0;
 function logoGrow(){
- var c=logoCells(LOGO[1],1382,622,.92,.55,.5,.1),n=c.idx.length,k,t=new Float32Array(n),cx=new Float32Array(n),cy=new Float32Array(n),best=[];
+ var c=logoCells(LOGO[1],1382,622,.92,.55,.5,.14),n=c.idx.length,k,t=new Float32Array(n),cx=new Float32Array(n),cy=new Float32Array(n),best=[];
  if(!n)return;
  for(k=0;k<n;k++){cx[k]=(c.idx[k]%gw+.5)*S;cy[k]=(((c.idx[k]/gw)|0)+.5)*S;if(c.val[k]>.8)best.push(k)}
  var sd=best.length?best[Math.floor(Math.random()*best.length)]:0,mx=1;
  for(k=0;k<n;k++){t[k]=Math.hypot(cx[k]-cx[sd],cy[k]-cy[sd]);if(t[k]>mx)mx=t[k]}
- var T=4200;
+ var T=3400;
  for(k=0;k<n;k++)t[k]=(t[k]/mx*.8+.2*nB[c.idx[k]])*T;
  var ord=[];for(k=0;k<n;k++)ord.push(k);
  ord.sort(function(a,b){return t[a]-t[b]});
