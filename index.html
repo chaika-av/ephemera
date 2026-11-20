@@ -209,12 +209,12 @@ function resize(){
  if(demo)startDemo();
 }
 
-function stamp(x,y,k,sig,mx){
- var sg=(sig||SIGMA)/S,cx=x/S,cy=y/S,r=Math.ceil(sg*2.6),inv=1/(2*sg*sg);
+function stamp(x,y,k){
+ var sg=SIGMA/S,cx=x/S,cy=y/S,r=Math.ceil(sg*2.6),inv=1/(2*sg*sg);
  var x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(gw-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(gh-1,Math.ceil(cy+r));
  for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){
   var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+.13*(nA[id]*2-1));
-  acc[id]=mx?Math.max(acc[id],v):Math.max(0,Math.min(1.15,acc[id]+v));
+  acc[id]=Math.min(1.15,acc[id]+v);
  }
  active=true;
 }
@@ -246,7 +246,7 @@ function mkNoise(w,h,sc,wt){
  return out;
 }
 
-function loop(){if(gl){dropsStep(performance.now());if(active){step();render()}}requestAnimationFrame(loop)}
+function loop(){if(gl){pump();if(active){step();render()}}requestAnimationFrame(loop)}
 
 function pos(e){return {x:e.clientX,y:e.clientY}}
 cv.addEventListener('pointerdown',function(e){
@@ -423,40 +423,55 @@ function logoReveal(){
  for(var k=0;k<c.idx.length;k++)if(c.val[k]>acc[c.idx[k]])acc[c.idx[k]]=c.val[k];
  active=true;
 }
-function startDemo(){logoReveal()}
-var IDLE_MS=15000,idleT=0;
-/* пауза: сверху вниз катятся капли и оставляют тонкий мокрый след; любое касание их останавливает */
-var drops=[],dropOn=false,dropLast=0,dropNext=0;
-function newDrop(){
- var sh=9+Math.random()*6;
- drops.push({x:innerWidth*(.06+.88*Math.random()),y:-sh*2,sh:sh,st:sh*.5,ang:(Math.random()-.5)*.2,mv:false,tl:0,v:0,px:null,py:null,hk:.55});
+/* постепенно: знак расползается от случайной точки, как будто его нарисовали мокрой рукой */
+var reveals=[],runTok=0;
+function logoGrow(){
+ var c=logoCells(LOGO[1],1382,622,.92,.55,.5,.14),n=c.idx.length,k,t=new Float32Array(n),cx=new Float32Array(n),cy=new Float32Array(n),best=[];
+ if(!n)return;
+ for(k=0;k<n;k++){cx[k]=(c.idx[k]%gw+.5)*S;cy[k]=(((c.idx[k]/gw)|0)+.5)*S;if(c.val[k]>.8)best.push(k)}
+ var sd=best.length?best[Math.floor(Math.random()*best.length)]:0,mx=1;
+ for(k=0;k<n;k++){t[k]=Math.hypot(cx[k]-cx[sd],cy[k]-cy[sd]);if(t[k]>mx)mx=t[k]}
+ var T=3400;
+ for(k=0;k<n;k++)t[k]=(t[k]/mx*.8+.2*nB[c.idx[k]])*T;
+ var ord=[];for(k=0;k<n;k++)ord.push(k);
+ ord.sort(function(a,b){return t[a]-t[b]});
+ var o={n:n,p:0,q:0,t0:performance.now(),idx:new Int32Array(n),val:new Float32Array(n),t:new Float32Array(n)};
+ for(k=0;k<n;k++){o.idx[k]=c.idx[ord[k]];o.val[k]=c.val[ord[k]];o.t[k]=t[ord[k]]}
+ reveals.push(o);active=true;
 }
-function dropsStep(now){
- if(!dropOn)return;
- var dt=Math.min(.05,(now-dropLast)/1000),i,d,k;dropLast=now;
- if(now>=dropNext&&drops.length<7){newDrop();dropNext=now+700+Math.random()*1800}
- for(i=drops.length-1;i>=0;i--){
-  d=drops[i];
-  if(d.px!==null)stamp(d.px,d.py,-d.hk,d.sh);
-  d.tl-=dt;
-  if(d.tl<=0){d.mv=!d.mv;d.tl=d.mv?.35+Math.random()*.9:.2+Math.random()*.7;d.v=d.mv?150+Math.random()*190:8+Math.random()*10}
-  d.ang+=(Math.random()-.5)*.05;d.ang=Math.max(-.3,Math.min(.3,d.ang));
-  var ox=d.x,oy=d.y,step=d.v*dt,n=Math.max(1,Math.ceil(step/2));
-  d.x+=Math.sin(d.ang)*step;d.y+=Math.cos(d.ang)*step;
-  for(k=1;k<=n;k++)stamp(ox+(d.x-ox)*k/n,oy+(d.y-oy)*k/n,.62,d.st,true);
-  if(d.y>innerHeight+d.sh*2){drops.splice(i,1);d.px=null;continue}
-  stamp(d.x,d.y,d.hk,d.sh);d.px=d.x;d.py=d.y;
+function pump(){
+ if(!reveals.length)return;
+ var now=performance.now(),i,k,R=900;
+ for(i=reveals.length-1;i>=0;i--){
+  var r=reveals[i],e=now-r.t0;
+  while(r.q<r.n&&r.t[r.q]<=e)r.q++;
+  for(k=r.p;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]])acc[r.idx[k]]=v}
+  while(r.p<r.q&&e-r.t[r.p]>=R)r.p++;
+  if(r.p>=r.n)reveals.splice(i,1);
  }
  active=true;
 }
-function startDrops(){if(dropOn)return;dropOn=true;dropLast=performance.now();dropNext=dropLast+400}
-function stopDrops(){
- if(!dropOn)return;
- drops.forEach(function(d){if(d.px!==null)stamp(d.px,d.py,-d.hk,d.sh)});
- drops=[];dropOn=false;
+function startDemo(){logoReveal()}
+var IDLE_MS=30000,idleT=0,idleN=0;
+/* случайные пятна: несколько «блуждающих» мазков в разных местах экрана */
+function randomSpots(){
+ var tok=runTok,n=3+Math.floor(Math.random()*4),k;
+ for(k=0;k<n;k++)(function(k){
+  var x=innerWidth*(.08+.84*Math.random()),y=innerHeight*(.08+.84*Math.random()),a=Math.random()*6.283,
+   steps=16+Math.floor(Math.random()*40),s=0;
+  function tick(){
+   if(tok!==runTok)return;
+   stamp(x,y,s?.32:.7);
+   a+=(Math.random()-.5)*.9;
+   x=Math.max(10,Math.min(innerWidth-10,x+Math.cos(a)*SIGMA*.35));y=Math.max(10,Math.min(innerHeight-10,y+Math.sin(a)*SIGMA*.35));
+   if(++s<steps)setTimeout(tick,80+Math.random()*60);
+  }
+  setTimeout(tick,k*(1200+Math.random()*2200)+Math.random()*600);
+ })(k);
 }
-function armIdle(){clearTimeout(idleT);idleT=setTimeout(function(){if(!down)startDrops();armIdle()},IDLE_MS)}
-function touched(){stopDrops();armIdle()}
+/* 30 секунд без касаний: по очереди то полный знак, то случайные пятна — оба проявляются медленно */
+function armIdle(){clearTimeout(idleT);idleT=setTimeout(function(){if(!down){if(idleN++%2===0)logoGrow();else randomSpots()}armIdle()},IDLE_MS)}
+function touched(){runTok++;reveals.length=0;armIdle()}
 
 
 var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(resize,150)});
