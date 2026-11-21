@@ -267,9 +267,9 @@ function stamp(x,y,k,sig,mx){
  active=true;
 }
 function stroke(x,y){
- if(!last){stamp(x,y,.7);last={x:x,y:y};return}
+ if(!last){stamp(x,y,.7,SIGMA*PF);last={x:x,y:y};return}
  var dx=x-last.x,dy=y-last.y,d=Math.hypot(dx,dy),st=SIGMA*.35,n=Math.max(1,Math.ceil(d/st));
- for(var i=1;i<=n;i++)stamp(last.x+dx*i/n,last.y+dy*i/n,.32);
+ for(var i=1;i<=n;i++)stamp(last.x+dx*i/n,last.y+dy*i/n,.32*(.8+.2*PF),SIGMA*PF);
  
  last={x:x,y:y};
 }
@@ -299,11 +299,22 @@ function loop(){if(gl){pump();dotStep(performance.now());
  if(demo&&!hintShown&&++fc%20===0&&performance.now()-demoT0>1500&&!wetVisible()){hintShown=true;showHint()}
  if(active){step();render()}}requestAnimationFrame(loop)}
 
-function pos(e){return {x:e.clientX,y:e.clientY}}
+var PF=1,pfSeen=false;
+/* сила нажатия (сенсорный экран/стилус): сильнее нажим — шире и насыщеннее мазок; если устройство силу не передаёт, всё как раньше */
+function press(e){
+ var t=1;
+ if(e.pointerType==='touch'||e.pointerType==='pen'){
+  var p=e.pressure,sz=Math.max(e.width||0,e.height||0);
+  if(p>0&&p<1&&p!==.5){pfSeen=true;t=.7+.75*p}
+  else if(sz>6){pfSeen=true;t=Math.max(.75,Math.min(1.5,sz/30))}
+ }
+ PF+=(t-PF)*.35;
+}
+function pos(e){press(e);return {x:e.clientX,y:e.clientY}}
 cv.addEventListener('pointerdown',function(e){
  demo=false;touched();hideHint();audioInit();dbg('коснулся');cv.setPointerCapture(e.pointerId);
  if((pend||firstOn)&&!wetVisible())doSwap();
- var p=pos(e);down=p;last=null;stroke(p.x,p.y);checkFound(p.x,p.y);
+ PF=1;var p=pos(e);down=p;last=null;stroke(p.x,p.y);checkFound(p.x,p.y);
 });
 cv.addEventListener('pointermove',function(e){
  if(!down)return;touched();var p=pos(e);down=p;stroke(p.x,p.y);checkFound(p.x,p.y);
@@ -384,8 +395,8 @@ function initGL(){
 ' float gx=(texture(uF,uv+vec2(d.x*3.,0.)).r-texture(uF,uv-vec2(d.x*3.,0.)).r)/6.*k;',
 ' float gy=(texture(uF,uv+vec2(0.,d.y*3.)).r-texture(uF,uv-vec2(0.,d.y*3.)).r)/6.*k;',
 ' float g=max(length(vec2(gx,gy)),.0005);',
-' float w=clamp((a-.32)/max(g*uPx,.04)+.5,0.,1.);w=w*w*(3.-2.*w);',
-' w*=mix(smoothstep(.32,.52,a),1.,.25*smoothstep(.01,.05,g)*smoothstep(.5,.9,a));',
+' float w=clamp((a-.32)/max(g,.002)*uPx*.8+.5,0.,1.);',
+' w*=smoothstep(.32,.37,a+g*14.);',
 ' float t=mix(texture(uP,uv).a,texture(uT,uv).a,texture(uL,uv).r);',
 ' float c=(1.-w)+w*t;',
 ' o=vec4(vec3(c),1.);',
@@ -420,8 +431,17 @@ function uploadText(){
  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gTT);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,txt);
 }
+function smoothField(){
+ var x,y,i,a,m,D=.16,W2=gw;
+ if(!tmpF||tmpF.length!==acc.length)tmpF=new Float32Array(acc.length);
+ tmpF.set(acc);
+ for(y=1;y<gh-1;y++)for(x=1;x<gw-1;x++){i=y*W2+x;a=tmpF[i];
+  if(a>0){m=(tmpF[i-1]+tmpF[i+1]+tmpF[i-W2]+tmpF[i+W2])*.25;if(m>a||a<1.05)acc[i]=a+D*(m-a)}}
+}
+var tmpF=null,smT=0;
 function stepGL(){
  var any=false,n=gw*gh;
+ if(!down&&(++smT&1)===0)smoothField();
  for(var i=0;i<n;i++){var a=acc[i];
   if(a>0){a=a*.9992-.0007*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a}else fld[i]=0}
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
