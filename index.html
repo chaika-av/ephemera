@@ -164,6 +164,7 @@ function firstItems(cw,ch){
  return out;
 }
 function customItems(cw,ch){
+ if(logoHide){curRects=[];return []}
  if(firstOn)return firstItems(cw,ch);
  var m=curM;curRects=[];if(!m)return [];
  var fam='px "TT Drugs","Special Elite","Courier New",monospace',mc=document.createElement('canvas').getContext('2d'),
@@ -261,8 +262,8 @@ function stamp(x,y,k,sig,mx){
  var x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(gw-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(gh-1,Math.ceil(cy+r));
  for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){
   var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+NAMP*(nA[id]*2-1));
-  acc[id]=mx?Math.max(acc[id],v):Math.max(0,Math.min(1.15,acc[id]+v));
-  if(k>0)lay[id]=255;
+  var pv=acc[id];acc[id]=mx?Math.max(pv,v):Math.max(0,Math.min(1.15,pv+v));
+  if(k>0&&pv<.05)lay[id]=255;
  }
  active=true;
 }
@@ -313,6 +314,7 @@ function press(e){
 function pos(e){press(e);return {x:e.clientX,y:e.clientY}}
 cv.addEventListener('pointerdown',function(e){
  demo=false;touched();hideHint();audioInit();dbg('коснулся');cv.setPointerCapture(e.pointerId);
+ if(logoHide&&!wetVisible()){logoHide=false;buildText()}
  if((pend||firstOn)&&!wetVisible())doSwap();
  PF=1;var p=pos(e);down=p;last=null;stroke(p.x,p.y);checkFound(p.x,p.y);
 });
@@ -370,9 +372,23 @@ function up(){
  if(!was)return;
  pend=true;swapT=setTimeout(doSwap,2500);
  dbg('отпустил');audioInit();
- if(ac&&ac.state==='running')chime();
- else if(ac&&ac.resume)ac.resume().then(chime,function(){});
+ playSoon(6,false);
 }
+/* iOS иногда оставляет контекст в состоянии suspended/interrupted (после блокировки экрана, звонка, смены приложения):
+   несколько раз пробуем возобновить, а если не выходит — создаём звуковой контекст заново */
+var chimeBusy=0;
+function playSoon(tries,rebuilt){
+ if(!ac){audioInit();if(!ac)return}
+ if(ac.state==='running'){chime();return}
+ try{var r=ac.resume();if(r&&r.then)r.then(function(){if(ac&&ac.state==='running'&&!chimeBusy){chimeBusy=1;setTimeout(function(){chimeBusy=0},300);chime()}},function(){})}catch(e){}
+ if(tries<=0){
+  if(!rebuilt){try{ac.close()}catch(e){};ac=null;bus=null;audioInit();setTimeout(function(){playSoon(4,true)},60)}
+  return;
+ }
+ setTimeout(function(){if(ac&&ac.state==='running'){if(!chimeBusy){chimeBusy=1;setTimeout(function(){chimeBusy=0},300);chime()}}else playSoon(tries-1,rebuilt)},110);
+}
+['touchend','click'].forEach(function(n){document.addEventListener(n,function(){if(ac&&ac.state!=='running')audioInit()},true)});
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&ac&&ac.state!=='running'){try{ac.resume()}catch(e){}}});
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 
 function showHint(){document.getElementById('hint').style.opacity=1}
@@ -525,7 +541,28 @@ function logoGrow(){
  ord.sort(function(a,b){return t[a]-t[b]});
  var o={n:n,p:0,q:0,t0:performance.now(),idx:new Int32Array(n),val:new Float32Array(n),t:new Float32Array(n)};
  for(k=0;k<n;k++){o.idx[k]=c.idx[ord[k]];o.val[k]=c.val[ord[k]];o.t[k]=t[ord[k]]}
+ /* всё нарисованное вокруг знака отступает, чтобы знак читался */
+ var core=new Uint8Array(gw*gh),rd=Math.round((d?40:24)/S);
+ for(k=0;k<n;k++)if(c.val[k]>.25)core[c.idx[k]]=1;
+ /* вокруг формы знака нарисованное мягко выталкивается: ближе к знаку — сильнее */
+ var L=4,lv=[],ring=[],rate=[],cov,l,m2;
+ rd=Math.round((d?56:36)/S);
+ for(l=1;l<=L;l++)lv.push(dilateMask(core,Math.max(1,Math.round(rd*l/L))));
+ for(k=0;k<core.length;k++){if(core[k])continue;cov=0;for(l=0;l<L;l++)if(lv[l][k])cov++;
+  if(cov){ring.push(k);m2=1-.075*(cov/L);rate.push(m2)}}
+ o.rate=Float32Array.from(rate);
+ o.ring=Int32Array.from(ring);
+ logoHide=true;buildText();
  reveals.push(o);active=true;
+}
+var logoHide=false,HOLD=2400;
+function dilateMask(m,r){
+ var tmp=new Uint8Array(m.length),out=new Uint8Array(m.length),x,y,s,i;
+ for(y=0;y<gh;y++){s=0;for(x=0;x<Math.min(r,gw);x++)s+=m[y*gw+x];
+  for(x=0;x<gw;x++){if(x+r<gw)s+=m[y*gw+x+r];if(x-r-1>=0)s-=m[y*gw+x-r-1];tmp[y*gw+x]=s>0?1:0}}
+ for(x=0;x<gw;x++){s=0;for(y=0;y<Math.min(r,gh);y++)s+=tmp[y*gw+x];
+  for(y=0;y<gh;y++){if(y+r<gh)s+=tmp[(y+r)*gw+x];if(y-r-1>=0)s-=tmp[(y-r-1)*gw+x];out[y*gw+x]=s>0?1:0}}
+ return out;
 }
 function pump(){
  if(!reveals.length)return;
@@ -533,9 +570,9 @@ function pump(){
  for(i=reveals.length-1;i>=0;i--){
   var r=reveals[i],e=now-r.t0;
   while(r.q<r.n&&r.t[r.q]<=e)r.q++;
-  for(k=r.p;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]]){acc[r.idx[k]]=v;lay[r.idx[k]]=255}}
-  while(r.p<r.q&&e-r.t[r.p]>=R)r.p++;
-  if(r.p>=r.n)reveals.splice(i,1);
+  if(e<1800){for(k=0;k<r.ring.length;k++){var ri=r.ring[k];if(acc[ri]>0){acc[ri]*=r.rate[k];if(acc[ri]<.02)acc[ri]=0}}}
+  for(k=0;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]]){acc[r.idx[k]]=v;lay[r.idx[k]]=255}}
+  if(e>r.t[r.n-1]+R+HOLD)reveals.splice(i,1);
  }
  active=true;
 }
@@ -601,7 +638,18 @@ function armIdle(){clearTimeout(idleT);idleT=setTimeout(idleFire,10000+Math.rand
 var pend=false,swapT=0,foundThis=false,foundN=0,logoDue=false;
 function doSwap(){
  var i,n=gw*gh;
- if(gl&&txt){prevTxt=txt;for(i=0;i<n;i++)if(acc[i]>.02)lay[i]=0}
+ if(gl&&txt){
+  /* прежние надписи остаются под ещё не высохшими следами, сколько бы раз фраза ни менялась */
+  var nc=mk(W,H),g=nc.getContext('2d'),tc=mk(W,H),tg=tc.getContext('2d'),mc=mk(gw,gh),mg=mc.getContext('2d'),im=mg.createImageData(gw,gh);
+  for(i=0;i<n;i++)if(acc[i]>.02&&lay[i]===255)im.data[i*4+3]=255;
+  mg.putImageData(im,0,0);
+  if(prevTxt)g.drawImage(prevTxt,0,0);
+  tg.drawImage(txt,0,0);tg.globalCompositeOperation='destination-in';tg.imageSmoothingEnabled=false;tg.drawImage(mc,0,0,W,H);
+  g.globalCompositeOperation='destination-out';g.imageSmoothingEnabled=false;g.drawImage(mc,0,0,W,H);
+  g.globalCompositeOperation='source-over';g.drawImage(tc,0,0);
+  prevTxt=nc;
+  for(i=0;i<n;i++)if(acc[i]>.02)lay[i]=0;
+ }
  firstOn=false;pend=false;foundThis=false;newMsg();buildText();if(gl&&gTP)uploadPrev();dbg('новая надпись');
  if(logoDue){logoDue=false;logoGrow()}
 }
