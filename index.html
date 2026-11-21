@@ -384,7 +384,7 @@ function initGL(){
 ' float gy=(texture(uF,uv+vec2(0.,d.y*3.)).r-texture(uF,uv-vec2(0.,d.y*3.)).r)/6.*k;',
 ' float g=max(length(vec2(gx,gy)),.0005);',
 ' float w=clamp((a-.32)/max(g*uPx,.04)+.5,0.,1.);w=w*w*(3.-2.*w);',
-' w*=mix(smoothstep(.32,.52,a),1.,smoothstep(.01,.05,g));',
+' w*=mix(smoothstep(.32,.52,a),1.,.25*smoothstep(.01,.05,g)*smoothstep(.5,.9,a));',
 ' float t=mix(texture(uP,uv).a,texture(uT,uv).a,texture(uL,uv).r);',
 ' float c=(1.-w)+w*t;',
 ' o=vec4(vec3(c),1.);',
@@ -574,7 +574,7 @@ function dotStep(now){
  active=true;
  if(end){dot=null;armIdle()}
 }
-function idleFire(){if(down||dot)return;if(wetVisible()){idleT=setTimeout(idleFire,2000);return}startDot()}
+function idleFire(){if(down||dot||demo)return;if(wetVisible()){idleT=setTimeout(idleFire,2000);return}startDot()}
 function armIdle(){clearTimeout(idleT);idleT=setTimeout(idleFire,10000+Math.random()*5000)}
 /* смена надписи: через 2,5 с после того, как палец отпущен, выбирается новая фраза; старый след досыхает со своей надписью */
 var pend=false,swapT=0,foundThis=false,foundN=0,logoDue=false;
