@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-60 -50 640 640%22%3E%3Crect x=%22-60%22 y=%22-50%22 width=%22640%22 height=%22640%22 rx=%22110%22 fill=%22%23fff%22/%3E%3Cpath fill-rule=%22evenodd%22 d=%22M490.81,182.68c-4.99-20.33-11.93-29.28-34.42-33.79-10.17-2.66-35.44-12.38-40.63-21.95-18.68-32.59-18.63-63.32-18.95-100.75-3.31-41.22-32.85-28.78-39.84,2.89-4.49,18.94-9.43,45.11-20.38,61.35-11.5,17.2-36.17,24.18-48.84,34.23l-16.53,13.1c-33.71,23.3-89.85-13.84-116.87-35.51-25.33-15.05-54.6-10.05-79.24,4.1-21.72,13.77-46.27,34.79-44.33,62.9,1.46,16.89,13.87,30.02,30.81,32.51,32.19,8.64,60.78-35.79,91.52-10.71,12.99,11.35,21.89,26.3,25.91,43.18,4.74,25.83-36.59,30.32-54.17,36.8-13.01,4.22-20.98,11.62-25.69,24.27-3.67,9.85,8.86,16.34,15.53,20.38,35.77,19.99,14.59,50.02-29.78,54.36-27.36,2.68-59.61-20.58-79.07,6.79-11.35,15.97-5.09,32.51,9.52,43.39,49.09,38.13,121.51,16.97,164.88-20.68,14.74-11.31,28.45-7.98,43.76-13.26,32.56-11.23,25.01-47.86,38.06-71.06,9.63-21.14,38.35-19.58,52.91-3.41,9.87,10.96,19.24,50.51,22.3,93.12,2.98,41.43-.25,85.87,1.66,102.09,2,16.96,15.34,29.44,22.6,27.75,13.01-3.03,20.41-17.26,19.86-30.27-.89-21.09,7.07-49.18,9.09-86.94,1.76-33.06-6.54-61.18-1.33-81.81,5.3-20.99,26.17-26.19,44.68-34.37,9.98-4.41,68.61-11.62,56.98-118.73v.03ZM333.35,228.22c-8.94,1.89-17.54-1.37-21.75-9.95-4.9-9.98-3.55-22.52,3.24-31.49,5.57-7.36,14.73-10.09,23.56-7.3,11.37,3.58,20.32,13.73,21.68,25.5,1.79,15.55-14.09,20.57-26.73,23.24h0ZM426.07,227.24c-12.72,12.7-39.5,6.5-44.82-7.51-5.6-14.73,18.62-44.34,38.01-40.79,7.44,1.36,15.79,7.41,17.08,16.24,1.73,11.83-2.05,23.84-10.28,32.06h.01ZM519.16,488.3c-1.28,9.2-5.43,17.44-12.17,23.6-11.27,10.28-41.92,28.7-51.95,9.8-9.35-17.61-8.39-38.29-3.29-57.29,1.63-6.05,5.15-11.39,11.27-13.93,9.2-3.82,19.57-4.46,29.3-1.74,17.61,4.91,29.35,21.56,26.84,39.58v-.02Z%22/%3E%3C/svg%3E">
 <title>эфемера</title>
 <meta property="og:title" content="эфемера">
 <meta name="apple-mobile-web-app-title" content="эфемера">
@@ -170,8 +171,8 @@ function customItems(cw,ch){
   mx=Math.max(14,cw*.05),my=Math.max(14,ch*.05),aw=cw-2*mx,ah=ch-2*my,
   n=m[0].replace(/\n/g,'').length,
   ph=Math.min(cw,ch)<520,
-  fmax=ph?Math.max(22,Math.min(cw,ch)*.075):Math.max(26,Math.min(110,Math.min(cw,ch)*.11)),
-  f=Math.max(ph?15:16,Math.min(fmax,Math.sqrt((ph?.05+.05*rnd():.09+.09*rnd())*cw*ch/(.78*n)))),
+  fmax=ph?Math.max(22,Math.min(cw,ch)*.075):Math.max(26,Math.min(70,Math.min(cw,ch)*.075)),
+  f=Math.max(ph?15:16,Math.min(fmax,Math.sqrt((ph?.05+.05*rnd():.05+.06*rnd())*cw*ch/(.78*n)))),
   wf=.55+.4*rnd(),px=rnd(),py=rnd(),LH=1.1,L,w,h,it;
  /* висячие слова: предлоги, союзы и частицы не оставляем в конце строки, тире не уходит в начало строки */
  var FW={};'в во и а но да на не ни по за из от до к ко с со у о об же ли бы уж что как для при над под без или чем'.split(' ').forEach(function(x){FW[x]=1});
@@ -250,7 +251,7 @@ function resize(){
  W=cv.width=Math.round(innerWidth*dpr);H=cv.height=Math.round(innerHeight*dpr);
  SIGMA=11*Math.max(1,Math.min(2.4,Math.sqrt(innerWidth*innerHeight)/600));
  gw=Math.ceil(innerWidth/S);gh=Math.ceil(innerHeight/S);
- acc=new Float32Array(gw*gh);nA=mkNoise(gw,gh,[8,16,32],[.5,.3,.2]);nB=mkNoise(gw,gh,[14,28],[.6,.4]);
+ acc=new Float32Array(gw*gh);var sf=SIGMA/11;NAMP=.13/Math.sqrt(sf);nA=mkNoise(gw,gh,[8*sf,16*sf,32*sf],[.5,.3,.2]);nB=mkNoise(gw,gh,[14,28],[.6,.4]);
  reroll();buildText();if(gl)glResize();active=true;
  if(demo)startDemo();
 }
@@ -259,7 +260,7 @@ function stamp(x,y,k,sig,mx){
  var sg=(sig||SIGMA)/S,cx=x/S,cy=y/S,r=Math.ceil(sg*2.6),inv=1/(2*sg*sg);
  var x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(gw-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(gh-1,Math.ceil(cy+r));
  for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){
-  var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+.13*(nA[id]*2-1));
+  var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+NAMP*(nA[id]*2-1));
   acc[id]=mx?Math.max(acc[id],v):Math.max(0,Math.min(1.15,acc[id]+v));
   if(k>0)lay[id]=255;
  }
@@ -276,7 +277,7 @@ function stroke(x,y){
 function sm(a,b,x){var t=(x-a)/(b-a);t=t<0?0:t>1?1:t;return t*t*(3-2*t)}
 
 
-var nA,nB;
+var nA,nB,NAMP=.13;
 function mkNoise(w,h,sc,wt){
  var out=new Float32Array(w*h);
  for(var s=0;s<sc.length;s++){
