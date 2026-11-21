@@ -130,13 +130,13 @@ function placeFirst(){
  var mask=c.mask,nx=c.nx,ny=c.ny,R=c.R,mc=document.createElement('canvas').getContext('2d'),LH=1.1,f,best=null,fb=null;
  for(f=c.f0;f>=14&&!best;f*=.93){
   mc.font=f+FAMS;
-  var ws=FIRST.map(function(l){return mc.measureText(l).width}),bh=3*f*LH,tot=0,li,cy,cx,fbest=null,found=null;
+  var ws=FIRST.map(function(l){return mc.measureText(l).width}),mw=Math.max.apply(null,ws),bh=3*f*LH,tot=0,li,cy,cx,fbest=null,found=null;
   for(li=0;li<3;li++)tot+=(Math.ceil(ws[li]/5)+1)*(Math.ceil(f*.75/5)+1);
-  var allow=Math.floor(tot*.015);
+  var allow=Math.floor(tot*c.al);
   for(cy=ny-R;cy<=ny+R;cy+=8)for(cx=nx-R;cx<=nx+R;cx+=8){
    var miss=0,dd=Math.hypot(cx-nx,cy-ny);
    outer:for(li=0;li<3;li++){
-    var y0=cy-bh/2+li*f*LH+f*.15,x0=cx-ws[li]/2,xx,yy;
+    var y0=cy-bh/2+li*f*LH+f*.15,x0=cx-mw/2,xx,yy;
     for(yy=y0;yy<=y0+f*.75;yy+=5)for(xx=x0;xx<=x0+ws[li];xx+=5){
      var gi=Math.floor(xx/S),gj=Math.floor(yy/S);
      if(!(gi>=0&&gj>=0&&gi<gw&&gj<gh&&mask[gj*gw+gi])){miss++;if(miss>allow*3)break outer}
@@ -153,11 +153,12 @@ function placeFirst(){
 function firstItems(cw,ch){
  curRects=[];
  if(!firstLay)return [];
- var mc=document.createElement('canvas').getContext('2d'),f=firstLay.f,LH=1.1,out=[];
+ var mc=document.createElement('canvas').getContext('2d'),f=firstLay.f,LH=1.1,out=[],mw=0;
  mc.font=f+FAMS;
+ FIRST.forEach(function(l){mw=Math.max(mw,mc.measureText(l).width)});
  FIRST.forEach(function(l,i){
   var w=mc.measureText(l).width;
-  out.push({t:l,x:(firstLay.cx-w/2)/cw,y:(firstLay.cy-1.5*f*LH+i*f*LH+f*.85)/ch,f:f,font:'mono'});
+  out.push({t:l,x:(firstLay.cx-mw/2)/cw,y:(firstLay.cy-1.5*f*LH+i*f*LH+f*.85)/ch,f:f,font:'mono'});
  });
  return out;
 }
@@ -168,8 +169,9 @@ function customItems(cw,ch){
   paras=m[0].split('\n'),sign='',rnd=rng(layoutSeed),
   mx=Math.max(14,cw*.05),my=Math.max(14,ch*.05),aw=cw-2*mx,ah=ch-2*my,
   n=m[0].replace(/\n/g,'').length,
-  fmax=Math.max(26,Math.min(110,Math.min(cw,ch)*.11)),
-  f=Math.max(16,Math.min(fmax,Math.sqrt((.09+.09*rnd())*cw*ch/(.78*n)))),
+  ph=Math.min(cw,ch)<520,
+  fmax=ph?Math.max(22,Math.min(cw,ch)*.075):Math.max(26,Math.min(110,Math.min(cw,ch)*.11)),
+  f=Math.max(ph?15:16,Math.min(fmax,Math.sqrt((ph?.05+.05*rnd():.09+.09*rnd())*cw*ch/(.78*n)))),
   wf=.55+.4*rnd(),px=rnd(),py=rnd(),LH=1.1,L,w,h,it;
  /* висячие слова: предлоги, союзы и частицы не оставляем в конце строки, тире не уходит в начало строки */
  var FW={};'в во и а но да на не ни по за из от до к ко с со у о об же ли бы уж что как для при над под без или чем'.split(' ').forEach(function(x){FW[x]=1});
@@ -259,6 +261,7 @@ function stamp(x,y,k,sig,mx){
  for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){
   var dx=i-cx,dy=j-cy,id=j*gw+i,v=k*Math.exp(-(dx*dx+dy*dy)*inv)*(1+.13*(nA[id]*2-1));
   acc[id]=mx?Math.max(acc[id],v):Math.max(0,Math.min(1.15,acc[id]+v));
+  if(k>0)lay[id]=255;
  }
  active=true;
 }
@@ -292,7 +295,7 @@ function mkNoise(w,h,sc,wt){
 
 var fc=0;
 function loop(){if(gl){pump();dotStep(performance.now());
- if(demo&&!hintShown&&++fc%20===0&&(performance.now()-demoT0>7000||(performance.now()-demoT0>1500&&!wetVisible()))){hintShown=true;showHint()}
+ if(demo&&!hintShown&&++fc%20===0&&performance.now()-demoT0>1500&&!wetVisible()){hintShown=true;showHint()}
  if(active){step();render()}}requestAnimationFrame(loop)}
 
 function pos(e){return {x:e.clientX,y:e.clientY}}
@@ -353,7 +356,7 @@ function chime(){
 function up(){
  touched();var was=!!down;down=null;last=null;
  if(!was)return;
- pend=true;
+ pend=true;swapT=setTimeout(doSwap,2500);
  dbg('отпустил');audioInit();
  if(ac&&ac.state==='running')chime();
  else if(ac&&ac.resume)ac.resume().then(chime,function(){});
@@ -363,7 +366,7 @@ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 function showHint(){document.getElementById('hint').style.opacity=1}
 function hideHint(){document.getElementById('hint').style.opacity=0}
 
-var gl=null,gP,gTF,gTT,gLoc={},fld=null;
+var gl=null,gP,gTF,gTT,gTP,gTL,gLoc={},fld=null,lay=null,prevTxt=null;
 function glShader(t,src){var s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
 function mkTex(u){var t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+u);gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t}
 function initGL(){
@@ -372,17 +375,17 @@ function initGL(){
   gl=gc.getContext('webgl2',{alpha:false,antialias:false});
   if(!gl)throw 0;
   var vs=glShader(gl.VERTEX_SHADER,['#version 300 es','in vec2 p;out vec2 uv;','void main(){uv=p*.5+.5;uv.y=1.-uv.y;gl_Position=vec4(p,0.,1.);}'].join('\n')),fs=glShader(gl.FRAGMENT_SHADER,['#version 300 es','precision highp float;','precision highp sampler2D;','in vec2 uv;out vec4 o;',
-'uniform sampler2D uF;uniform sampler2D uT;uniform vec2 uTex;uniform float uPx;',
+'uniform sampler2D uF;uniform sampler2D uT;uniform sampler2D uP;uniform sampler2D uL;uniform vec2 uTex;uniform float uPx;',
 'void main(){',
 ' float k=1.;',
 ' vec2 d=1./uTex;',
-' float a=texture(uF,uv).r*k;',
-' float gx=(texture(uF,uv+vec2(d.x,0.)).r-texture(uF,uv-vec2(d.x,0.)).r)*.5*k;',
-' float gy=(texture(uF,uv+vec2(0.,d.y)).r-texture(uF,uv-vec2(0.,d.y)).r)*.5*k;',
+' float a=(texture(uF,uv).r*2.+texture(uF,uv+d*vec2(1.5,0.)).r+texture(uF,uv+d*vec2(-1.5,0.)).r+texture(uF,uv+d*vec2(0.,1.5)).r+texture(uF,uv+d*vec2(0.,-1.5)).r+texture(uF,uv+d*vec2(1.1,1.1)).r+texture(uF,uv+d*vec2(-1.1,1.1)).r+texture(uF,uv+d*vec2(1.1,-1.1)).r+texture(uF,uv+d*vec2(-1.1,-1.1)).r)/10.*k;',
+' float gx=(texture(uF,uv+vec2(d.x*3.,0.)).r-texture(uF,uv-vec2(d.x*3.,0.)).r)/6.*k;',
+' float gy=(texture(uF,uv+vec2(0.,d.y*3.)).r-texture(uF,uv-vec2(0.,d.y*3.)).r)/6.*k;',
 ' float g=max(length(vec2(gx,gy)),.0005);',
-' float w=clamp((a-.32)/g*uPx+.5,0.,1.);',
+' float w=clamp((a-.32)/max(g*uPx,.04)+.5,0.,1.);w=w*w*(3.-2.*w);',
 ' w*=mix(smoothstep(.32,.52,a),1.,smoothstep(.01,.05,g));',
-' float t=texture(uT,uv).a;',
+' float t=mix(texture(uP,uv).a,texture(uT,uv).a,texture(uL,uv).r);',
 ' float c=(1.-w)+w*t;',
 ' o=vec4(vec3(c),1.);',
 '}'].join('\n'));
@@ -392,8 +395,8 @@ function initGL(){
   var b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
   gLoc.uTex=gl.getUniformLocation(gP,'uTex');gLoc.uPx=gl.getUniformLocation(gP,'uPx');
-  gl.uniform1i(gl.getUniformLocation(gP,'uF'),0);gl.uniform1i(gl.getUniformLocation(gP,'uT'),1);
-  gTF=mkTex(0);gTT=mkTex(1);
+  gl.uniform1i(gl.getUniformLocation(gP,'uF'),0);gl.uniform1i(gl.getUniformLocation(gP,'uT'),1);gl.uniform1i(gl.getUniformLocation(gP,'uP'),2);gl.uniform1i(gl.getUniformLocation(gP,'uL'),3);
+  gTF=mkTex(0);gTT=mkTex(1);gTP=mkTex(2);gTL=mkTex(3);
  }catch(e){gl=null;gTT=null;gc.style.display='none';document.getElementById('hint').textContent='нужен браузер с поддержкой WebGL2'}
 }
 function glResize(){
@@ -402,19 +405,27 @@ function glResize(){
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.R16F,gw,gh,0,gl.RED,gl.FLOAT,fld);
  gl.uniform2f(gLoc.uTex,gw,gh);gl.uniform1f(gLoc.uPx,W/gw);
- uploadText();
+ lay=new Uint8Array(gw*gh);lay.fill(255);prevTxt=null;
+ gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,gTL);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,gw,gh,0,gl.RED,gl.UNSIGNED_BYTE,lay);
+ uploadText();uploadPrev();
+}
+/* предыдущая надпись остаётся под следами, которые ещё не высохли */
+function uploadPrev(){
+ gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,gTP);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,prevTxt||mk(8,8));
 }
 function uploadText(){
  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,gTT);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,txt);
 }
 function stepGL(){
- var any=false,n=gw*gh,fl=flushing,mxa=0;
+ var any=false,n=gw*gh;
  for(var i=0;i<n;i++){var a=acc[i];
-  if(a>0){a=a*.9986-.0012*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;if(a>mxa)mxa=a;fld[i]=a}else fld[i]=0}
- if(pend&&!down&&mxa<.3&&!dot)doSwap();
+  if(a>0){a=a*.9992-.0007*(.55+.9*nB[i]);if(a<0)a=0;acc[i]=a;if(a>0)any=true;fld[i]=a}else fld[i]=0}
  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gTF);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gw,gh,gl.RED,gl.FLOAT,fld);
+ gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,gTL);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gw,gh,gl.RED,gl.UNSIGNED_BYTE,lay);
  active=any||!!down;
 }
 function step(){stepGL()}
@@ -473,8 +484,8 @@ function logoReveal(){
  var d=isDesk(),bw=d?FULLW:519.5,bh=d?622:534.92,fw=d?.66:.72,fh=d?.5:.58,cyf=d?.5:.46,
   c=logoCells(d?fullD():LOGO[0],bw,bh,fw,fh,cyf),k,sc=Math.min(innerWidth*fw/bw,innerHeight*fh/bh),
   bx=innerWidth/2-bw*sc/2,by=innerHeight*cyf-bh*sc/2,mask=new Uint8Array(gw*gh);
- for(k=0;k<c.idx.length;k++){if(c.val[k]>acc[c.idx[k]])acc[c.idx[k]]=c.val[k];if(c.val[k]>.5)mask[c.idx[k]]=1}
- firstCtx={mask:mask,nx:d?bx+262*sc:innerWidth/2,ny:d?by+265*sc:by+220*sc,R:d?bw*sc*.15:bw*sc*.2,f0:d?60:36};
+ for(k=0;k<c.idx.length;k++){if(c.val[k]>acc[c.idx[k]]){acc[c.idx[k]]=c.val[k];lay[c.idx[k]]=255}if(c.val[k]>.42)mask[c.idx[k]]=1}
+ firstCtx={mask:mask,nx:d?bx+250*sc:innerWidth/2,ny:d?by+200*sc:innerHeight*.52,R:d?bw*sc*.15:bw*sc*.3,f0:d?60:40,al:d?.015:.012};
  placeFirst();if(firstOn)buildText();
  demoT0=performance.now();hintShown=false;hideHint();
  active=true;
@@ -501,7 +512,7 @@ function pump(){
  for(i=reveals.length-1;i>=0;i--){
   var r=reveals[i],e=now-r.t0;
   while(r.q<r.n&&r.t[r.q]<=e)r.q++;
-  for(k=r.p;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]])acc[r.idx[k]]=v}
+  for(k=r.p;k<r.q;k++){var u=(e-r.t[k])/R;u=u>1?1:u;var v=r.val[k]*u*u*(3-2*u);if(v>acc[r.idx[k]]){acc[r.idx[k]]=v;lay[r.idx[k]]=255}}
   while(r.p<r.q&&e-r.t[r.p]>=R)r.p++;
   if(r.p>=r.n)reveals.splice(i,1);
  }
@@ -526,7 +537,14 @@ function startDot(){
  var d=dotMake();if(!d)return;
  var hn=document.getElementById('hint'),tn=hn.firstChild,fs=parseFloat(getComputedStyle(hn).fontSize)||20;
  d.cx=innerWidth/2;d.cy=innerHeight/2;
- showHint();
+ if(curRects.length){
+  var rr=curRects[Math.floor(Math.random()*curRects.length)],fz=rr.h/1.1,mode=Math.random(),ov=fz*.38,R=d.D/2;
+  if(mode<.4){d.cx=rr.x+rr.w*(.15+.7*Math.random());d.cy=rr.y+fz*.25-R+ov}
+  else if(mode<.7){d.cx=rr.x+rr.w+R-ov;d.cy=rr.y+fz*(.3+.4*Math.random())}
+  else{d.cx=rr.x-R+ov;d.cy=rr.y+fz*(.3+.4*Math.random())}
+  d.cx=Math.max(R,Math.min(innerWidth-R,d.cx));d.cy=Math.max(R,Math.min(innerHeight-R,d.cy));
+  d.ph=Math.random()*6.283;d.hold=14+Math.random()*8;d.t0=performance.now();dot=d;return;
+ }
  try{
   var ix=[],q,i1,rg=document.createRange(),r,th;
   for(q=0;q<tn.length;q++)if(tn.data.charAt(q)!==' ')ix.push(q);
@@ -552,16 +570,18 @@ function dotStep(now){
   sy=(d.cy-innerHeight*.5)/S+1.5*Math.sin(t*.9+d.ph*1.7)+.7*Math.sin(t*2.1+d.ph),
   gi0=Math.max(0,Math.floor(d.i0+sx)-3),gi1=Math.min(gw-1,Math.ceil(d.i0+d.dw+sx)+3),
   gj0=Math.max(0,Math.floor(d.j0+sy)-3),gj1=Math.min(gh-1,Math.ceil(d.j0+d.dh+sy)+3),i,j;
- for(j=gj0;j<=gj1;j++)for(i=gi0;i<=gi1;i++)acc[j*gw+i]=dotSample(d,i-sx-d.i0,j-sy-d.j0)*al;
+ for(j=gj0;j<=gj1;j++)for(i=gi0;i<=gi1;i++){var dv=dotSample(d,i-sx-d.i0,j-sy-d.j0)*al;acc[j*gw+i]=dv;if(dv>0)lay[j*gw+i]=255}
  active=true;
  if(end){dot=null;armIdle()}
 }
 function idleFire(){if(down||dot)return;if(wetVisible()){idleT=setTimeout(idleFire,2000);return}startDot()}
 function armIdle(){clearTimeout(idleT);idleT=setTimeout(idleFire,10000+Math.random()*5000)}
-/* смена надписи: через ~3 с после того, как палец отпущен, след быстро гасится и выбирается новая фраза */
-var HOLD_MS=4500,pend=false,swapT=0,flushing=false,foundThis=false,foundN=0,logoDue=false;
+/* смена надписи: через 2,5 с после того, как палец отпущен, выбирается новая фраза; старый след досыхает со своей надписью */
+var pend=false,swapT=0,foundThis=false,foundN=0,logoDue=false;
 function doSwap(){
- firstOn=false;pend=false;foundThis=false;newMsg();buildText();dbg('новая надпись');
+ var i,n=gw*gh;
+ if(gl&&txt){prevTxt=txt;for(i=0;i<n;i++)if(acc[i]>.02)lay[i]=0}
+ firstOn=false;pend=false;foundThis=false;newMsg();buildText();if(gl&&gTP)uploadPrev();dbg('новая надпись');
  if(logoDue){logoDue=false;logoGrow()}
 }
 function checkFound(x,y){
@@ -571,7 +591,7 @@ function checkFound(x,y){
   if(x>r.x-m&&x<r.x+r.w+m&&y>r.y-m&&y<r.y+r.h+m){foundThis=true;foundN++;if(foundN%5===0)logoDue=true;dbg('найдено: '+foundN);return}
  }
 }
-function touched(){dot=null;clearTimeout(swapT);flushing=false;armIdle()}
+function touched(){dot=null;clearTimeout(swapT);armIdle()}
 
 
 var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(resize,150)});
