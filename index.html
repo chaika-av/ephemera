@@ -163,8 +163,30 @@ function firstItems(cw,ch){
  });
  return out;
 }
+/* подсказка на старте: при бездействии слева направо «проводится» надпись «прикоснись» */
+var hintOn=false,hintAnim=null,hintRuns=0,hintWait=0,hintGeo=null;
+function hintItems(cw,ch){
+ curRects=[];
+ var f=Math.max(26,Math.min(cw*.1,ch*.1,76)),mc=document.createElement('canvas').getContext('2d'),tw,cx=cw/2,base=ch/2+f*.33;
+ mc.font=f+FAMS;tw=mc.measureText('прикоснись').width;
+ hintGeo={f:f,x0:cx-tw/2-f*.15,x1:cx+tw/2+f*.15,y:base-f*.3};
+ return [{t:'прикоснись',x:(cx-tw/2)/cw,y:base/ch,f:f,font:'mono'}];
+}
+function startHint(){hintOn=true;buildText();hintAnim={t0:performance.now(),dur:1900,px:null}}
+function hintStep(now){
+ if(!hintAnim||!hintGeo)return;
+ var g=hintGeo,p=Math.min(1,(now-hintAnim.t0)/hintAnim.dur),e=.5-.5*Math.cos(Math.PI*p*.9+.05*Math.PI)*1,
+  e2=(1-Math.cos(Math.PI*p))/2,x=g.x0+(g.x1-g.x0)*e2,y=g.y+Math.sin(p*5)*g.f*.04,sig=g.f*.42,st=sig*.35,xx;
+ if(hintAnim.px===null)hintAnim.px=g.x0;
+ var n=Math.max(1,Math.ceil(Math.abs(x-hintAnim.px)/st));
+ for(var i=1;i<=n;i++){xx=hintAnim.px+(x-hintAnim.px)*i/n;stamp(xx,y,i===n&&p>=1?.32:.32,sig)}
+ hintAnim.px=x;active=true;
+ if(p>=1){hintAnim=null;hintRuns++}
+}
+function hintCancel(){if(hintOn||hintAnim){hintAnim=null;hintOn=false;doSwap()}}
 function customItems(cw,ch){
  if(logoHide){curRects=[];return []}
+ if(hintOn)return hintItems(cw,ch);
  if(firstOn)return firstItems(cw,ch);
  var m=curM;curRects=[];if(!m)return [];
  var fam='px "TT Drugs","Special Elite","Courier New",monospace',mc=document.createElement('canvas').getContext('2d'),
@@ -252,7 +274,7 @@ function resize(){
  W=cv.width=Math.round(innerWidth*dpr);H=cv.height=Math.round(innerHeight*dpr);
  SIGMA=11*Math.max(1,Math.min(2.4,Math.sqrt(innerWidth*innerHeight)/600));
  gw=Math.ceil(innerWidth/S);gh=Math.ceil(innerHeight/S);
- acc=new Float32Array(gw*gh);var sf=SIGMA/11;NAMP=.13/Math.sqrt(sf);nA=mkNoise(gw,gh,[8*sf,16*sf,32*sf],[.5,.3,.2]);nB=mkNoise(gw,gh,[14,28],[.6,.4]);
+ acc=new Float32Array(gw*gh);var sf=SIGMA/11;NAMP=.13/Math.sqrt(sf);nA=mkNoise(gw,gh,[8*sf,16*sf,32*sf],[.5,.3,.2]);nB=mkNoise(gw,gh,[5*sf,11*sf,23*sf,48*sf,100*sf,210*sf],[.07,.13,.2,.27,.2,.13]);
  reroll();buildText();if(gl)glResize();active=true;
  if(demo)startDemo();
 }
@@ -297,7 +319,8 @@ function mkNoise(w,h,sc,wt){
 
 var fc=0;
 function loop(){if(gl){pump();dotStep(performance.now());
- if(demo&&!hintShown&&++fc%20===0&&performance.now()-demoT0>1500&&!wetVisible()){hintShown=true;showHint()}
+ hintStep(performance.now());
+ if(demo&&!hintAnim&&++fc%20===0&&performance.now()-demoT0>1500){var nw=performance.now();if(!wetVisible()){if(!hintWait)hintWait=nw;if(nw-hintWait>(hintRuns?3200:0)){hintWait=0;startHint()}}else hintWait=0}
  if(active){step();render()}}requestAnimationFrame(loop)}
 
 var PF=1,pfSeen=false;
@@ -313,7 +336,7 @@ function press(e){
 }
 function pos(e){press(e);return {x:e.clientX,y:e.clientY}}
 cv.addEventListener('pointerdown',function(e){
- demo=false;touched();hideHint();audioInit();dbg('коснулся');cv.setPointerCapture(e.pointerId);
+ demo=false;touched();hintCancel();audioInit();dbg('коснулся');cv.setPointerCapture(e.pointerId);
  if(logoHide&&!wetVisible()){logoHide=false;buildText()}
  if((pend||firstOn)&&!wetVisible())doSwap();
  PF=1;var p=pos(e);down=p;last=null;stroke(p.x,p.y);checkFound(p.x,p.y);
@@ -524,7 +547,7 @@ function logoReveal(){
  for(k=0;k<c.idx.length;k++){if(c.val[k]>acc[c.idx[k]]){acc[c.idx[k]]=c.val[k];lay[c.idx[k]]=255}if(c.val[k]>.42)mask[c.idx[k]]=1}
  firstCtx={mask:mask,nx:d?bx+250*sc:innerWidth/2,ny:d?by+200*sc:innerHeight*.52,R:d?bw*sc*.15:bw*sc*.3,f0:d?60:40,al:d?.015:.012};
  placeFirst();if(firstOn)buildText();
- demoT0=performance.now();hintShown=false;hideHint();
+ demoT0=performance.now();hintOn=false;hintAnim=null;hintRuns=0;hintWait=0;
  active=true;
 }
 /* знак «эфемера» целиком по центру: расползается от случайной точки, как будто его нарисовали мокрой рукой */
